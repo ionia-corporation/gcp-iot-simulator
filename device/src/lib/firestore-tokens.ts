@@ -1,0 +1,63 @@
+import { createJWT } from './utils';
+import https from 'https';
+import config from './config';
+
+
+export const getToken = (): Promise<string> => {
+  const devicePath = `projects/${config.projectId}/locations/${config.region}/registries/${config.registryId}/devices/${config.deviceId}`;
+  const tokenEndpoint = `https://cloudiottoken.googleapis.com/v1beta1/${devicePath}:generateFirebaseToken`;
+
+  return new Promise((resolve, reject) => {
+    https.request(
+      tokenEndpoint,
+      {
+        method: 'POST',
+        headers: {
+          'authorization': `Bearer ${createJWT(config.projectId, config.privateKey, config.algorithm)}`,
+          'content-type': 'application/json',
+        }
+
+      },
+      (res) => {
+        const chunks: string[] = [];
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => {
+          chunks.push(chunk);
+        });
+        res.on('end', () => {
+          const body = chunks.join();
+          const response = JSON.parse(body);
+          resolve(response.token as string);
+          console.log(response.token);
+        });
+      }
+    )
+    .on('error', reject)
+    .end();
+  });
+}
+
+export const downloadFile = (url: string, firebaseToken: string): Promise<Buffer> => {
+  return new Promise((resolve, reject) => {
+    https.request(
+      url,
+      {
+        headers: {
+          'authorization': `Firebase ${firebaseToken}`
+        }
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk) => {
+          chunks.push(chunk);
+        });
+        res.on('end', () => {
+          const body = Buffer.concat(chunks);
+          resolve(body);
+        });
+      }
+    )
+    .on('error', reject)
+    .end();
+  });
+}
