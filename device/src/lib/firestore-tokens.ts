@@ -1,10 +1,9 @@
 import { createJWT } from './utils';
 import https from 'https';
-import config from './config';
-
+import enviornment from '../enviornment';
 
 export const getToken = (): Promise<string> => {
-  const devicePath = `projects/${config.projectId}/locations/${config.region}/registries/${config.registryId}/devices/${config.deviceId}`;
+  const devicePath = `projects/${enviornment.projectId}/locations/${enviornment.region}/registries/${enviornment.registryId}/devices/${enviornment.deviceId}`;
   const tokenEndpoint = `https://cloudiottoken.googleapis.com/v1beta1/${devicePath}:generateFirebaseToken`;
 
   return new Promise((resolve, reject) => {
@@ -13,7 +12,7 @@ export const getToken = (): Promise<string> => {
       {
         method: 'POST',
         headers: {
-          'authorization': `Bearer ${createJWT(config.projectId, config.privateKey, config.algorithm)}`,
+          'authorization': `Bearer ${createJWT(enviornment.projectId, enviornment.privateKey, enviornment.algorithm)}`,
           'content-type': 'application/json',
         }
 
