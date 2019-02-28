@@ -78,7 +78,7 @@ export default class Device {
 
   protected onCommands(message: Buffer){
     this.log(chalk.yellow('Received new command: '));
-    this.log(message.toString('base64'));
+    this.log(message.toString('ascii'));
   }
 
   protected onConfig(message: Buffer) {
@@ -108,7 +108,9 @@ export default class Device {
       } else {
         // Register a callback function for that topic
         this.mqttClient.on('message', (incomingTopic, message) => {
-          if (fullTopic === incomingTopic) {
+          // Only match on base topic (this is mostly for commands)
+          const baseTopic = fullTopic.replace('/#', '');
+          if (baseTopic === incomingTopic) {
             callback(message);
           }
         });
