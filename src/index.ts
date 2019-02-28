@@ -27,6 +27,6 @@ switch(enviornment.type){
 }
 
 
-vorpal.delimiter(chalk.bold('device-simulator$'));
+vorpal.delimiter(chalk.bold('device-simulator[' + chalk.yellowBright(enviornment.type) + '][' + chalk.yellowBright(enviornment.deviceId) + ']$'));
 vorpal.history('device-simulator');
 vorpal.show();
