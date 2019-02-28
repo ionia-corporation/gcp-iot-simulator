@@ -11,21 +11,21 @@ import firmwareCommands from '../commands/firmware';
 import firmware from '../commands/firmware';
 
 export default class Device {
-  private state: { [key: string]: string } = {};
-  private config: { [key: string]: string } = {};
-  private events: { [key: string]: string } = {};
+  protected state: { [key: string]: string } = {};
+  protected config: { [key: string]: string } = {};
+  protected events: { [key: string]: string } = {};
 
-  private mqttClient: MqttClient;
+  protected mqttClient: MqttClient;
 
-  private env: DeviceEnviornment;
-  private vorpal: Vorpal;
+  protected env: DeviceEnviornment;
+  protected vorpal: Vorpal;
 
   constructor(env: DeviceEnviornment, vorpal: Vorpal) {
     this.env = env;
-    this.mqttClient = this.connect();
-
     this.vorpal = vorpal;
     this.vorpalInit();
+
+    this.mqttClient = this.connect();
   }
 
   private vorpalInit(){
@@ -35,12 +35,12 @@ export default class Device {
     this.vorpal.use(firmwareCommands(this));
   }
 
-  private log(message: string) {
+  protected log(message: string) {
     this.vorpal.log(message);
   }
 
   // Broker bits
-  private connect() {
+  protected connect() {
     // IoT Core specific connection parameters
     const mqttClientId = `projects/${this.env.projectId}/locations/${this.env.region}/registries/${this.env.registryId}/devices/${this.env.deviceId}`;
     const jwt = createJWT(this.env.projectId, this.env.privateKey, this.env.algorithm);
@@ -55,6 +55,7 @@ export default class Device {
       secureProtocol: 'TLSv1_2_method'
     };
 
+    this.log('Attempting connect to IoT Core');
     const client = mqtt.connect(connectionArgs);
 
     client.on('connect', () => {
@@ -70,7 +71,7 @@ export default class Device {
     return client;
   }
 
-  private onConfig(message: Buffer) {
+  protected onConfig(message: Buffer) {
     try {
       // Assume config is JSON
       this.config = JSON.parse(message.toString('utf8'));
