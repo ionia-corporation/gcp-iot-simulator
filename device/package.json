@@ -7,6 +7,7 @@
     "@types/chalk": "^2.2.0",
     "@types/jsonwebtoken": "^8.3.0",
     "@types/mqtt": "^2.5.0",
+    "@types/mqtt-connection": "github:node-pinus/types-mqtt-connection",
     "@types/vorpal": "^1.11.0",
     "chalk": "^2.4.2",
     "jsonwebtoken": "^8.5.0",
