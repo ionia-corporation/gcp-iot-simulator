@@ -3,6 +3,7 @@ import chalk from 'chalk';
 
 import enviornment from './enviornment';
 import Device from './devices/device';
+import GatewayClient from './devices/gateway-client';
 
 const vorpal = new Vorpal();
 
@@ -15,6 +16,7 @@ switch(enviornment.type){
     break;
 
   case 'gateway-client':
+    new GatewayClient(enviornment, vorpal);
     break;
 
   default:

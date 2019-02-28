@@ -11,6 +11,7 @@
     "chalk": "^2.4.2",
     "jsonwebtoken": "^8.5.0",
     "mqtt": "^2.18.8",
+    "mqtt-connection": "^4.0.0",
     "ts-node": "^8.0.2",
     "typescript": "^3.3.3333",
     "vorpal": "^1.12.0"
