@@ -4,6 +4,7 @@ import chalk from 'chalk';
 import enviornment from './enviornment';
 import Device from './devices/device';
 import GatewayClient from './devices/gateway-client';
+import Gateway from './devices/gateway';
 
 const vorpal = new Vorpal();
 
@@ -13,6 +14,7 @@ switch(enviornment.type){
     break;
 
   case 'gateway':
+    new Gateway(enviornment, vorpal);
     break;
 
   case 'gateway-client':
@@ -25,7 +27,6 @@ switch(enviornment.type){
 }
 
 
-
-vorpal.delimiter(chalk.magenta('device-simulator$'));
+vorpal.delimiter(chalk.bold('device-simulator$'));
 vorpal.history('device-simulator');
 vorpal.show();
