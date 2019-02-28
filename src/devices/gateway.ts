@@ -36,15 +36,11 @@ export default class Gateway extends Device {
 
   onIoTCoreMessage(topic: string, payload: Buffer, publishPacket: mqtt.IPublishPacket): void {
     const topicParts = topic.split('/');
-    const [prefix, deviceId, subtopic] = topicParts;
-
+    const [,, deviceId, subtopic] = topicParts;
     const clientConnection = this.findClient(deviceId);
     if (!clientConnection) {
       return;
     }
-
-    // Allow the device to remain unaware of IoT Core by removing the IoT Core prefix
-    publishPacket.topic = subtopic;
 
     // Send to the child device
     clientConnection.publish(publishPacket);
@@ -60,8 +56,9 @@ export default class Gateway extends Device {
   }
 
 
-  onIoTCoreApplicationError() {
-    // TODO: Runs when a pub to errors comes from IoT Core
+  onIoTCoreApplicationError(message: Buffer) {
+    this.log(chalk.yellow('Error from IoT Core for Gateway:'));
+    this.log(message.toString('utf8'));
   }
 
 
