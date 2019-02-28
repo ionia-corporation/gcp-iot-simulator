@@ -103,9 +103,8 @@ export default class Device {
     const fullTopic = this.wrapTopic(topic);
     this.mqttClient.subscribe(fullTopic, (error, granted) => {
       // If there's an error or we are not granted QoS 0
-
-      if (error || granted[0].qos != 0) {
-        // todo: error
+      if (error || granted.length === 0 || granted[0].qos != 0) {
+        this.log('Error subscribing to, or already subscribed to ' + topic);
       } else {
         // Register a callback function for that topic
         this.mqttClient.on('message', (incomingTopic, message) => {

@@ -13,6 +13,7 @@ import { DeviceEnviornment } from '../enviornment';
 
 export default class Gateway extends Device {
   private clientConnections: GatewayClientConnection[] = [];
+  private watchBridge = true;
 
   constructor(env: DeviceEnviornment, vorpal: Vorpal) {
     super(env, vorpal);
@@ -76,13 +77,19 @@ export default class Gateway extends Device {
     })
   }
 
+  bridgeLogger(...items: any[]){
+    if(this.watchBridge){
+      this.log(...items);
+    }
+  }
+
   initMQTTServer() {
     const mqttServer = new net.Server();
 
     mqttServer.on('connection', (stream) => {
       try {
         const deviceConnectionMQTT = mqttConnection(stream);
-        const gatewayClient = new GatewayClientConnection(deviceConnectionMQTT, this.mqttClient);
+        const gatewayClient = new GatewayClientConnection(deviceConnectionMQTT, this.mqttClient, this.log.bind(this));
         this.clientConnections.push(gatewayClient);
       } catch (err) {
         this.log({ err });

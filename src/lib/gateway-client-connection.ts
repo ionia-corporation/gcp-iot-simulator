@@ -15,11 +15,14 @@ export default class GatewayClientConnection {
 
   public deviceId: string;
 
-  constructor(deviceConnection: mqttConnection, iotCoreConnection: mqtt.Client) {
+  log: Function;
+
+  constructor(deviceConnection: mqttConnection, iotCoreConnection: mqtt.Client, log: Function) {
     this.deviceConnection = deviceConnection;
     this.iotCoreConnection = iotCoreConnection;
 
     this.deviceId = '';
+    this.log = log;
 
     // Bind handlers that don't require a mqtt connection right away
     this.deviceConnection.on('connect', this.onDeviceConnect.bind(this));
@@ -34,7 +37,7 @@ export default class GatewayClientConnection {
 
     // stream timeout
     this.deviceConnection.stream.on('timeout', () => {
-      // console.warn('Device stream timed out');
+      this.log('Device stream timed out');
       this.onDeviceClose();
     });
 
@@ -46,16 +49,16 @@ export default class GatewayClientConnection {
   }
 
   onDevicePublish(publishPacket: mqtt.IPublishPacket) {
-    console.debug({ packet: publishPacket }, 'Device published');
+    this.log({ packet: publishPacket }, 'Device published');
 
     // Prepend device metadata before gateway publishes to IoT Core
     const topic = `/devices/${this.deviceId}/${publishPacket.topic}`;
 
     this.iotCoreConnection.publish(topic, publishPacket.payload, (err) => {
         if(err) {
-            console.error('error publishing: ' + JSON.stringify(err));
+            this.log('error publishing: ' + JSON.stringify(err));
         } else {
-            console.debug('Publish successfully sent to IoT Core');
+            this.log('Publish successfully sent to IoT Core');
         }
     });
   }
@@ -69,7 +72,7 @@ export default class GatewayClientConnection {
       return accumulator;
     }, {} as mqtt.ISubscriptionMap);
 
-    console.debug({ packet: subscribePacket }, 'Device requested subscription');
+    this.log({ packet: subscribePacket }, 'Device requested subscription');
 
     this.iotCoreConnection.subscribe(topics, (err, granted) => {
       const qos = granted.map((item) => item.qos);
@@ -79,7 +82,7 @@ export default class GatewayClientConnection {
         messageId: subscribePacket.messageId,
       });
 
-      console.debug({
+      this.log({
         messageId: subscribePacket.messageId,
         granted
       }, 'SUBACK sent to device');
@@ -89,9 +92,9 @@ export default class GatewayClientConnection {
   onDeviceConnect(connectPacket: mqtt.IConnectPacket) {
     const { clientId, username, password, will } = connectPacket;
 
-    console.info('Device connection initiated');
+    this.log('Device connection initiated');
 
-    console.debug({ packet: connectPacket }, 'Device sent CONNECT packet');
+    this.log({ packet: connectPacket }, 'Device sent CONNECT packet');
 
     if(connectPacket.username){
       this.deviceId = connectPacket.username;
@@ -102,10 +105,10 @@ export default class GatewayClientConnection {
 
     this.attachDevice(err => {
         if (!err) {
-          console.log('Got PUBACK from IoT Core on attach control message');
+          this.log('Got PUBACK from IoT Core on attach control message');
           this.deviceConnection.connack({ returnCode: 0 });
         } else {
-          console.error(err);
+          this.log(err);
         }
       });
 
@@ -119,41 +122,41 @@ export default class GatewayClientConnection {
   onDeviceUnsubscribe(unsubscribePacket: mqtt.IUnsubscribePacket) {
     const topics = unsubscribePacket.unsubscriptions;
 
-    console.debug({ packet: unsubscribePacket }, 'Device requested unsubscribe');
+    this.log({ packet: unsubscribePacket }, 'Device requested unsubscribe');
 
     this.iotCoreConnection.unsubscribe(topics, () => {
       this.deviceConnection.unsuback({ messageId: unsubscribePacket.messageId });
 
-      console.debug({ packet: unsubscribePacket }, 'UNSUBACK sent to device');
+      this.log({ packet: unsubscribePacket }, 'UNSUBACK sent to device');
     });
   }
 
   onDeviceDisconnect() {
-    console.debug('Device connection disconnect');
+    this.log('Device connection disconnect');
 
     this.detachDevice(err => {
         if (!err) {
-          console.log('Got PUBACK from IoT Core on detach control message');
+          this.log('Got PUBACK from IoT Core on detach control message');
         } else {
-          console.error(err);
+          this.log(err);
         }
       });
   }
 
   onDeviceClose() {
-    console.debug('Device connection closed');
+    this.log('Device connection closed');
 
     this.detachDevice(err => {
         if (!err) {
-          console.log('Got PUBACK from IoT Core on detach control message');
+          this.log('Got PUBACK from IoT Core on detach control message');
         } else {
-          console.error(err);
+          this.log(err);
         }
       });
   }
 
   onDeviceError() {
-    console.debug('Device connection error');
+    this.log('Device connection error');
   }
 
   publish(packet: mqtt.IPublishPacket){
@@ -164,7 +167,7 @@ export default class GatewayClientConnection {
     const attachTopic = `/devices/${this.deviceId}/attach`;
     const attachPayload = '{}';
 
-    console.log('Attaching ' + attachTopic);
+    this.log('Attaching ' + attachTopic);
     // send message on attach topic for gateway
     this.iotCoreConnection.publish(attachTopic, attachPayload, {qos:1}, callback);
   }
@@ -173,7 +176,7 @@ export default class GatewayClientConnection {
     const detachTopic = `/devices/${this.deviceId}/detach`;
     const detachPayload = '{}';
 
-    console.log('Detaching ' + detachTopic);
+    this.log('Detaching ' + detachTopic);
     // send message on attach topic for gateway
     this.iotCoreConnection.publish(detachTopic, detachPayload, {qos:1}, callback);
   }
