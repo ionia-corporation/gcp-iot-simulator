@@ -20,6 +20,7 @@ export default class GatewayClient extends Device {
       host: 'localhost',
       port: 1883,
       protocol: 'mqtt',
+      username: this.env.deviceId,
     };
 
     const client = mqtt.connect(connectionArgs);

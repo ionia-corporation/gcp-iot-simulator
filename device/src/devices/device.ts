@@ -9,6 +9,7 @@ import mqttCommands from '../commands/mqtt';
 import jsonTopicCommands from '../commands/json-topic';
 import firmwareCommands from '../commands/firmware';
 import firmware from '../commands/firmware';
+import logCommands from '../commands/iot-log';
 
 export default class Device {
   protected state: { [key: string]: string } = {};
@@ -28,15 +29,16 @@ export default class Device {
     this.mqttClient = this.connect();
   }
 
-  private vorpalInit(){
+  protected vorpalInit(){
     this.vorpal.use(mqttCommands(this));
     this.vorpal.use(jsonTopicCommands(this, 'state'));
     this.vorpal.use(jsonTopicCommands(this, 'events'));
     this.vorpal.use(firmwareCommands(this));
+    this.vorpal.use(logCommands(this));
   }
 
-  protected log(message: string) {
-    this.vorpal.log(message);
+  protected log(...items: any[]) {
+    items.map(item => this.vorpal.log(item));
   }
 
   // Broker bits
@@ -55,20 +57,28 @@ export default class Device {
       secureProtocol: 'TLSv1_2_method'
     };
 
-    this.log('Attempting connect to IoT Core');
+    this.log(chalk.green('Attempting connect'));
     const client = mqtt.connect(connectionArgs);
 
-    client.on('connect', () => {
-      this.log(chalk.green('Connected to MQTT'));
-      this.subscribe('config', (message) => this.onConfig(message));
-    });
+    client.on('connect', this.onConnect.bind(this));
 
     client.on('error', (e) => {
-      this.log(chalk.red('Error in MQTT subscription:'));
+      this.log(chalk.red('Error in MQTT connection:'));
       this.log(e.message);
     })
 
     return client;
+  }
+
+  protected onConnect(connackPacket: mqtt.IConnackPacket) {
+    this.log(chalk.green('Connected to MQTT'));
+    this.subscribe('config', this.onConfig.bind(this));
+    this.subscribe('commands/#', this.onCommands.bind(this));
+  }
+
+  protected onCommands(message: Buffer){
+    this.log(chalk.yellow('Received new command: '));
+    this.log(message.toString('base64'));
   }
 
   protected onConfig(message: Buffer) {
@@ -93,6 +103,7 @@ export default class Device {
     const fullTopic = this.wrapTopic(topic);
     this.mqttClient.subscribe(fullTopic, (error, granted) => {
       // If there's an error or we are not granted QoS 0
+
       if (error || granted[0].qos != 0) {
         // todo: error
       } else {
@@ -126,6 +137,15 @@ export default class Device {
     this.log(chalk.blueBright('Published new events: '))
     this.log(JSON.stringify(this.events));
   }
+
+  public sendLog(level: string, value: string) {
+    const logs: any = {};
+    logs[level] = value;
+    this.publish('events/log', JSON.stringify(logs));
+    this.log(chalk.blueBright('Published to logs: '))
+    this.log(JSON.stringify(logs));
+  }
+
 
   private wrapTopic(topic: string) {
     return `/devices/${this.env.deviceId}/${topic}`;

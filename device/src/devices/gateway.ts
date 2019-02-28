@@ -1,100 +1,101 @@
 import mqtt from 'mqtt';
+import Vorpal from 'vorpal';
 import fs from 'fs';
 import net from 'net';
 import mqttConnection from 'mqtt-connection';
+import chalk from 'chalk';
 
-import { createJWT } from './utils';
-
+import { createJWT } from '../lib/utils';
 import GatewayClientConnection from '../lib/gateway-client-connection';
 
+import Device from './device';
+import { DeviceEnviornment } from '../enviornment';
 
-const KEY_FILE = './keys/rsa_private.pem';
-const ALGORITHM = 'RS256';
-const PROJECT_ID = 'ota-iot-231619';
-const REGION_ID = 'us-central1';
-const REGISTRY_ID = 'OTA-DeviceRegistry';
-const GATEWAY_ID = 'paul';
+export default class Gateway extends Device {
+  private clientConnections: GatewayClientConnection[] = [];
 
-export default class Gateway {
-  private clientConnections: {[deviceId: string]: GatewayClientConnection} = {};
+  constructor(env: DeviceEnviornment, vorpal: Vorpal) {
+    super(env, vorpal);
 
-  constructor(){
+    this.initLocalGateway();
+  }
+
+  protected vorpalInit(){
+    super.vorpalInit();
+    // command to disconnect from MQTT maybe put it in mqttcommands
+  }
+
+  protected onConnect(connackPacket: mqtt.IConnackPacket) {
+    super.onConnect(connackPacket);
+
+    // Subscribe to special gateway topic for errors
+    this.subscribe('errors', this.onIoTCoreApplicationError.bind(this));
+  }
+
+
+  onIoTCoreMessage(topic: string, payload: Buffer, publishPacket: mqtt.IPublishPacket): void {
+    const topicParts = topic.split('/');
+    const [prefix, deviceId, subtopic] = topicParts;
+
+    const clientConnection = this.findClient(deviceId);
+    if (!clientConnection) {
+      return;
+    }
+
+    // Allow the device to remain unaware of IoT Core by removing the IoT Core prefix
+    publishPacket.topic = subtopic;
+
+    // Send to the child device
+    clientConnection.publish(publishPacket);
+    this.log({ packet: publishPacket }, 'IoT Core broker sent message to device');
+  }
+
+  initLocalGateway() {
     this.initMQTTServer();
-    this.connectToIoTCore();
+
+    // Bind handlers
+    this.mqttClient.on('message', this.onIoTCoreMessage.bind(this));
+    this.mqttClient.on('close', this.onIoTCoreClose.bind(this));
   }
 
-  connectToIoTCore(){
-    // make single connection with IoT Core
-    const iotCoreConnection = mqtt.connect({
-      host: 'mqtt.googleapis.com',
-      port: 8883,
-      username: 'unused',
-      password: createJWT(PROJECT_ID, KEY_FILE, ALGORITHM),
-      clientId: `projects/${PROJECT_ID}/locations/${REGION_ID}/registries/${REGISTRY_ID}/devices/${GATEWAY_ID}`,
-      protocol: 'mqtts',
-      secureProtocol: 'TLSv1_2_method',
-    });
 
-    // bind handlers
-    iotCoreConnection.on('error', onIoTCoreError.bind(this));
-    iotCoreConnection.on('connect', onIoTCoreConnect.bind(this));
-    iotCoreConnection.on('message', onIoTCoreMessage.bind(this));
-    iotCoreConnection.on('close', onIoTCoreClose.bind(this));
-
-    function onIoTCoreConnect(connackPacket) {
-      console.debug({ packet: connackPacket }, 'CONNACK from IoT Core');
-      // subscriptions
-      iotCoreConnection.subscribe('/devices/' + GATEWAY_ID + '/config');
-      iotCoreConnection.subscribe('/devices/' + GATEWAY_ID + '/commands/#');
-      iotCoreConnection.subscribe('/devices/' + GATEWAY_ID + '/errors');
-    }
-
-    function onIoTCoreMessage(topic, message, publishPacket) {
-      // TODO: Routing to individual device connections
-
-      const topicParts = topic.split('/');
-      const [, deviceId, subtopic] = topicParts;
-      this.clientConnections[deviceId].publish(message);
-
-      console.debug({ packet: publishPacket }, 'IoT Core broker sent message to device');
-    }
-
-    // handled in 'connack' event to inform the device about the error
-    // use this method to inform the proxy
-    function onIoTCoreError(err) {
-      console.warn({ err }, 'IoT Core error');
-    }
-
-    function onIoTCoreClose() {
-      // TODO: close connections with edge devices on local broker
-      console.debug('IoT Core connection closed');
-    }
-
-
+  onIoTCoreApplicationError() {
+    // TODO: Runs when a pub to errors comes from IoT Core
   }
 
-  initMQTTServer(){
+
+  onIoTCoreClose() {
+    // TODO: close connections with edge devices on local broker
+    this.log('IoT Core connection closed');
+  }
+
+  findClient(deviceId: string) {
+    // Loop through clients and see if we have one matching the device ID
+    return this.clientConnections.find((clientConnection) => {
+      return clientConnection.deviceId === deviceId;
+    })
+  }
+
+  initMQTTServer() {
     const mqttServer = new net.Server();
 
-    mqttServer.on('connection', function (stream) {
+    mqttServer.on('connection', (stream) => {
       try {
-        const deviceConnection = mqttConnection(stream);
-        this.clientConnections['testID'] = new GatewayClientConnection(deviceConnection);
+        const deviceConnectionMQTT = mqttConnection(stream);
+        const gatewayClient = new GatewayClientConnection(deviceConnectionMQTT, this.mqttClient);
+        this.clientConnections.push(gatewayClient);
       } catch (err) {
-        console.error({ err });
+        this.log({ err });
       }
     })
 
     // listen on port 1883
     mqttServer.listen(1883, (err: Error) => {
       if (err) {
-        console.error({ err }, 'Couldn\'t start MQTT server');
+        this.log({ err }, 'Couldn\'t start MQTT server');
       } else {
-        console.info('MQTT server started');
+        this.log(chalk.magenta('MQTT server started'));
       }
-
     });
   }
 }
-
-

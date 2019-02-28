@@ -13,7 +13,7 @@ export default class GatewayClientConnection {
   // TCP Stream wrapper between gateway and IoT Core
   private iotCoreConnection: mqtt.Client;
 
-  private deviceId: string;
+  public deviceId: string;
 
   constructor(deviceConnection: mqttConnection, iotCoreConnection: mqtt.Client) {
     this.deviceConnection = deviceConnection;
@@ -34,7 +34,7 @@ export default class GatewayClientConnection {
 
     // stream timeout
     this.deviceConnection.stream.on('timeout', () => {
-      console.warn('Device stream timed out');
+      // console.warn('Device stream timed out');
       this.onDeviceClose();
     });
 
@@ -114,8 +114,6 @@ export default class GatewayClientConnection {
     this.deviceConnection.on('publish', this.onDevicePublish.bind(this));
     this.deviceConnection.on('pingreq', this.onDevicePingRequest.bind(this));
     this.deviceConnection.on('unsubscribe', this.onDeviceUnsubscribe.bind(this));
-
-
   }
 
   onDeviceUnsubscribe(unsubscribePacket: mqtt.IUnsubscribePacket) {
@@ -156,6 +154,10 @@ export default class GatewayClientConnection {
 
   onDeviceError() {
     console.debug('Device connection error');
+  }
+
+  publish(packet: mqtt.IPublishPacket){
+    this.deviceConnection.publish(packet)
   }
 
   attachDevice(callback: mqtt.PacketCallback) {
