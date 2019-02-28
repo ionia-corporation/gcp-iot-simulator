@@ -51,10 +51,7 @@ export default class GatewayClientConnection {
   onDevicePublish(publishPacket: mqtt.IPublishPacket) {
     this.log({ packet: publishPacket }, 'Device published');
 
-    // Prepend device metadata before gateway publishes to IoT Core
-    const topic = `/devices/${this.deviceId}/${publishPacket.topic}`;
-
-    this.iotCoreConnection.publish(topic, publishPacket.payload, (err) => {
+    this.iotCoreConnection.publish(publishPacket.topic, publishPacket.payload, (err) => {
         if(err) {
             this.log('error publishing: ' + JSON.stringify(err));
         } else {
@@ -160,7 +157,7 @@ export default class GatewayClientConnection {
   }
 
   publish(packet: mqtt.IPublishPacket){
-    this.deviceConnection.publish(packet)
+    this.deviceConnection.publish(packet);
   }
 
   attachDevice(callback: mqtt.PacketCallback) {
