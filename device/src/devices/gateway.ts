@@ -1,13 +1,13 @@
-// import Vorpal from 'vorpal';
-// import mqtt, { MqttClient } from 'mqtt';
-// import chalk from 'chalk';
+import Vorpal from 'vorpal';
+import mqtt, { MqttClient } from 'mqtt';
+import chalk from 'chalk';
 
-// import { DeviceEnviornment } from '../enviornment';
-// import { createJWT } from '../lib/utils';
+import { DeviceEnviornment } from '../enviornment';
+import { createJWT } from '../lib/utils';
 
-// import net from 'net';
-// import * as mqttCon from 'mqtt-connection';
-// import Device from './device';
+import net from 'net';
+import * as mqttCon from 'mqtt-connection';
+import Device from './device';
 
 // // bind handlers
 // iotCoreConnection.on('error', onIoTCoreError.bind(this));
@@ -41,189 +41,199 @@
 //     console.debug('IoT Core connection closed');
 // }
 
-// class DeviceConnection {
-//   private deviceConnection : any;
-//   constructor(connection : any) {
-//     this.deviceConnection = connection;
-//     // Bind handlers that don't require a mqtt connection right away
-//     this.deviceConnection.on('connect', this.onDeviceConnect.bind(this));
-//     this.deviceConnection.on('disconnect', this.onDeviceDisconnect.bind(this));
-//     this.deviceConnection.on('close', this.onDeviceClose.bind(this));
-//     this.deviceConnection.on('error', this.onDeviceError.bind(this));    
-//   }
+class DeviceConnection {
+  private deviceConnection : any;
+  private iotCoreConnection : MqttClient;
+  private deviceId: string;
+  private gatewayId : string;
 
-//   onDeviceConnect(connectPacket: any) {
-//     const { clientId, username, password, will } = connectPacket;
+  constructor(connection : any, mqttClient: MqttClient, gatewayId: string) {
+    this.deviceConnection = connection;
+    this.iotCoreConnection = mqttClient;
+    this.gatewayId = gatewayId;
 
-//     console.info('Device connection initiated');
+    // Bind handlers that don't require a mqtt connection right away
+    this.deviceConnection.on('connect', this.onDeviceConnect.bind(this));
+    this.deviceConnection.on('disconnect', this.onDeviceDisconnect.bind(this));
+    this.deviceConnection.on('close', this.onDeviceClose.bind(this));
+    this.deviceConnection.on('error', this.onDeviceError.bind(this));    
+  }
 
-//     console.debug({ packet: connectPacket }, 'Device sent CONNECT packet');
+  onDeviceConnect(connectPacket: any) {
+    const { clientId, username, password, will } = connectPacket;
 
-//     const deviceId = connectPacket.username;
-//     this.attachDevice(err => {
-//         if (!err) {
-//           console.log('Got PUBACK from IoT Core on attach control message');
-//           deviceConnection.connack({ returnCode: 0 });
-//         } else {
-//           console.error(err);
-//         }
-//       });
+    // parse out device ID from the client ID
+    // TODO: make this a little more bullet proof
+    this.deviceId = clientId.substring(clientId.lastIndexOf('/') + 1);
 
-//     // Bind handlers that require the mqtt client after the connection is successfully started
-//     this.deviceConnection.on('subscribe', this.onDeviceSubscribe.bind(this));
-//     this.deviceConnection.on('publish', this.onDevicePublish.bind(this));
-//     this.deviceConnection.on('unsubscribe', this.onDeviceUnsubscribe.bind(this));
+    console.info('Device connection initiated');
 
-//     this.deviceConnection.stream.setTimeout(1000 * (connectPacket.keepalive + 5))
-//     // stream timeout
-//     this.deviceConnection.stream.on('timeout', () => {
-//       console.warn('Device stream timed out');
+    console.debug({ packet: connectPacket }, 'Device sent CONNECT packet');
 
-//       this.detachDevice(err => {
-//         if (!err) {
-//           console.log('Got PUBACK from IoT Core on detach control message');
-//         } else {
-//           console.error(err);
-//         }
-//       });
-//     });
-//   }
+    const deviceId = connectPacket.username;
+    const dc = this.deviceConnection;
+    this.attachDevice((err:any) => {
+        if (!err) {
+          console.log('Got PUBACK from IoT Core on attach control message');
+          dc.connack({ returnCode: 0 });
+        } else {
+          console.error(err);
+        }
+      });
 
-//   onDeviceDisconnect() {
-//     console.debug('Device connection disconnect');
+    // Bind handlers that require the mqtt client after the connection is successfully started
+    this.deviceConnection.on('subscribe', this.onDeviceSubscribe.bind(this));
+    this.deviceConnection.on('publish', this.onDevicePublish.bind(this));
+    this.deviceConnection.on('unsubscribe', this.onDeviceUnsubscribe.bind(this));
 
-//     this.detachDevice(err => {
-//         if (!err) {
-//           console.log('Got PUBACK from IoT Core on detach control message');
-//         } else {
-//           console.error(err);
-//         }
-//       });
-//   }
+    this.deviceConnection.stream.setTimeout(1000 * (connectPacket.keepalive + 5))
+    // stream timeout
+    this.deviceConnection.stream.on('timeout', () => {
+      console.warn('Device stream timed out');
 
-//   onDeviceClose() {
-//     console.debug('Device connection closed');
+      this.detachDevice(err => {
+        if (!err) {
+          console.log('Got PUBACK from IoT Core on detach control message');
+        } else {
+          console.error(err);
+        }
+      });
+    });
+  }
 
-//     this.detachDevice(err => {
-//         if (!err) {
-//           console.log('Got PUBACK from IoT Core on detach control message');
-//         } else {
-//           console.error(err);
-//         }
-//       });
-//   }
+  onDeviceDisconnect() {
+    console.debug('Device connection disconnect');
 
-//   onDeviceError() {
-//     console.debug('Device connection error');
-//   }
+    this.detachDevice(err => {
+        if (!err) {
+          console.log('Got PUBACK from IoT Core on detach control message');
+        } else {
+          console.error(err);
+        }
+      });
+  }
 
-// }
+  onDeviceClose() {
+    console.debug('Device connection closed');
 
-// export default class Gateway extends Device {
-//   // mqtt-proxy server socket
-//   private mqttServer : net.Server;
+    this.detachDevice(err => {
+        if (!err) {
+          console.log('Got PUBACK from IoT Core on detach control message');
+        } else {
+          console.error(err);
+        }
+      });
+  }
 
-//   constructor(env: DeviceEnviornment, vorpal: Vorpal) {
-//     super(env, vorpal);
-//     // Connect to IoT Core right away
-//     this.connect();
+  onDeviceError() {
+    console.debug('Device connection error');
+  }
 
-//     // Subscribe to errors topic on top of other device topics
-//     this.subscribe('errors', (message) => this.onError(message));
+  onDevicePublish(publishPacket: any) {
+    console.debug({ packet: publishPacket }, 'Device published');
 
-//     // TODO: Start local MQTT broker
-//     this.mqttServer = new net.Server();
-//     this.mqttServer.on('connection', function (stream : net.Socket) {
-//       try {
-//         const deviceConnection = new DeviceConnection(mqttCon(stream));
-//       } catch (err) {
-//         console.error({ err });
-//       }
-//     });
+    this.iotCoreConnection.publish(`/devices/${this.deviceId}/${publishPacket.topic}`, publishPacket.payload, (err) => {
+        if(err) {
+            console.error('error publishing: ' + JSON.stringify(err));
+        } else {
+            console.debug('Publish successfully sent to IoT Core');
+        }
+    });
+  }
 
-//     // listen on port 1883
-//     this.mqttServer.listen(1883, (err : any) => {
-//       if (err) {
-//           console.error({ err }, 'Couldn\'t start MQTT server');
-//       } else {
-//           console.info('MQTT server started');
-//       }
-//     });
-//   }
+  onDeviceSubscribe(subscribePacket: any) {
+    // transform [{ topic: 'test', qos: 0 }] to { test: 0 }
+    let topics = subscribePacket.subscriptions.reduce((accumulator: any, topicObject: any) => {
+      const name = topicObject.topic;
+      const qos = topicObject.qos;
+      accumulator[name] = qos;
+      return accumulator;
+    }, {});
 
-//   protected onError(message: Buffer) {
-//     const error = message.toString('utf8');
-//     this.log(chalk.yellow('Received new error message:'));
-//     this.log(error);
-//   }
+    console.debug({ packet: subscribePacket }, 'Device requested subscription');
 
-//   onDevicePublish(publishPacket) {
-//     console.debug({ packet: publishPacket }, 'Device published');
+    this.iotCoreConnection.subscribe(topics, (err, granted) => {
+      const qos = granted.map((item) => item.qos);
 
-//     iotCoreConnection.publish(`/devices/${this.deviceId}/${publishPacket.topic}`, publishPacket.payload, (err) => {
-//         if(err) {
-//             console.error('error publishing: ' + JSON.stringify(err));
-//         } else {
-//             console.debug('Publish successfully sent to IoT Core');
-//         }
-//     });
-//   }
+      this.deviceConnection.suback({
+        granted: qos,
+        messageId: subscribePacket.messageId,
+      });
 
-//   onDeviceSubscribe(subscribePacket) {
-//     // transform [{ topic: 'test', qos: 0 }] to { test: 0 }
-//     let topics = subscribePacket.subscriptions.reduce((accumulator, topicObject) => {
-//       const name = topicObject.topic;
-//       const qos = topicObject.qos;
-//       accumulator[name] = qos;
-//       return accumulator;
-//     }, {});
+      console.debug({
+        messageId: subscribePacket.messageId,
+        granted
+      }, 'SUBACK sent to device');
+    });
+  }
 
-//     console.debug({ packet: subscribePacket }, 'Device requested subscription');
+  onDeviceUnsubscribe(unsubscribePacket: any) {
+    const topics = unsubscribePacket.unsubscriptions;
 
-//     iotCoreConnection.subscribe(topics, (err, granted) => {
-//       const qos = granted.map((item) => item.qos);
+    console.debug({ packet: unsubscribePacket }, 'Device requested unsubscribe');
 
-//       this.deviceConnection.suback({
-//         granted: qos,
-//         messageId: subscribePacket.messageId,
-//       });
+    this.iotCoreConnection.unsubscribe(topics, () => {
+      this.deviceConnection.unsuback({ messageId: unsubscribePacket.messageId });
 
-//       console.debug({
-//         messageId: subscribePacket.messageId,
-//         granted
-//       }, 'SUBACK sent to device');
-//     });
-//   }
+      console.debug({ packet: unsubscribePacket }, 'UNSUBACK sent to device');
+    });
+  }
 
-//   onDeviceUnsubscribe(unsubscribePacket) {
-//     const topics = unsubscribePacket.unsubscriptions;
+  attachDevice(callback:(err:any) => void) {
+    const attachTopic = `/devices/${this.gatewayId}/attach`;
+    const attachPayload = '{}';
 
-//     console.debug({ packet: unsubscribePacket }, 'Device requested unsubscribe');
+    console.log('Attaching ' + attachTopic);
+    // send message on attach topic for gateway
+    this.iotCoreConnection.publish(attachTopic, attachPayload, {qos:1}, callback);
+  }
 
-//     iotCoreConnection.unsubscribe(topics, () => {
-//       this.deviceConnection.unsuback({ messageId: unsubscribePacket.messageId });
+  detachDevice(callback:(err:any) => void) {
+    const detachTopic = `/devices/${this.gatewayId}/detach`;
+    const detachPayload = '{}';
 
-//       console.debug({ packet: unsubscribePacket }, 'UNSUBACK sent to device');
-//     });
-//   }
+    console.log('Detaching ' + detachTopic);
+    // send message on attach topic for gateway
+    this.iotCoreConnection.publish(detachTopic, detachPayload, {qos:1}, callback);
+  }
 
-//   attachDevice(callback) {
-//     const attachTopic = `/devices/${this.deviceId}/attach`;
-//     const attachPayload = '{}';
+}
 
-//     console.log('Attaching ' + attachTopic);
-//     // send message on attach topic for gateway
-//     iotCoreConnection.publish(attachTopic, attachPayload, {qos:1}, callback);
-//   }
+export default class Gateway extends Device {
+  // mqtt-proxy server socket
+  private mqttServer : net.Server;
 
-//   detachDevice(callback) {
-//     const detachTopic = `/devices/${this.deviceId}/detach`;
-//     const detachPayload = '{}';
+  constructor(env: DeviceEnviornment, vorpal: Vorpal) {
+    super(env, vorpal);
+    // Connect to IoT Core right away
+    this.connect();
 
-//     console.log('Detaching ' + detachTopic);
-//     // send message on attach topic for gateway
-//     iotCoreConnection.publish(detachTopic, detachPayload, {qos:1}, callback);
-//   }
-// }
+    // Subscribe to errors topic on top of other device topics
+    this.subscribe('errors', (message) => this.onError(message));
 
-// module.exports = IoTConnection;
+    // TODO: Start local MQTT broker
+    this.mqttServer = new net.Server();
+    this.mqttServer.on('connection', function (stream : net.Socket) {
+      try {
+        const deviceConnection = new DeviceConnection(mqttCon(stream), this.MqttClient, this.deviceId);
+      } catch (err) {
+        console.error({ err });
+      }
+    });
+
+    // listen on port 1883
+    this.mqttServer.listen(1883, (err : any) => {
+      if (err) {
+          console.error({ err }, 'Couldn\'t start MQTT server');
+      } else {
+          console.info('MQTT server started');
+      }
+    });
+  }
+
+  protected onError(message: Buffer) {
+    const error = message.toString('utf8');
+    this.log(chalk.yellow('Received new error message:'));
+    this.log(error);
+  }
+}
