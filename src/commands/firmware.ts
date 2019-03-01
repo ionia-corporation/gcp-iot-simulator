@@ -4,7 +4,7 @@ import chalk from 'chalk';
 import Device from '../devices/device';
 import { getToken, downloadFile } from '../lib/firestore-tokens';
 
-const statuses = ['msg-received', 'downloading', 'installing', 'installed'];
+const statuses = ['msg-received', 'downloading', 'installing', 'installed', 'error'];
 
 export default (device: Device) => {
   return (vorpal: Vorpal) => {
