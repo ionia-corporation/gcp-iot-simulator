@@ -24,17 +24,17 @@ export default (device: Device) => {
         if (args.firmwareStatus == 'downloading') {
           vorpal.log(chalk.cyan('Retreiving a Firebase token from IoT Core'));
 
-          getToken()
-            .then(token => {
-              vorpal.log(chalk.cyan('Retreived token:'));
-              vorpal.log(token);
-              return downloadFile(device.config['firmware-update']['Url'], token);
-            })
-            .then(file => {
-              vorpal.log(chalk.cyan('File downloaded. File size: ' + file.length));
-              vorpal.log(file.toString('ascii'));
-              vorpal.log(chalk.cyan(messages[statuses.indexOf(args.firmwareStatus)]));
-            })
+          // getToken()
+          //   .then(token => {
+          //     vorpal.log(chalk.cyan('Retreived token:'));
+          //     vorpal.log(token);
+          //     return downloadFile(device.config['firmware-update']['Url'], token);
+          //   })
+          //   .then(file => {
+          //     vorpal.log(chalk.cyan('File downloaded. File size: ' + file.length));
+          //     vorpal.log(file.toString('ascii'));
+          //     vorpal.log(chalk.cyan(messages[statuses.indexOf(args.firmwareStatus)]));
+          //   })
         } else {
           setTimeout(() => {
             vorpal.log(chalk.cyan(messages[statuses.indexOf(args.firmwareStatus)]));
