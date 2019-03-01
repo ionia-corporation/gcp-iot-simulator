@@ -2,6 +2,7 @@ import Vorpal from 'vorpal';
 import chalk from 'chalk';
 
 import Device from '../devices/device';
+import { getToken, downloadFile } from '../lib/firestore-tokens';
 
 const statuses = ['msg-received', 'downloading', 'installing', 'installed'];
 
@@ -20,22 +21,27 @@ export default (device: Device) => {
           'Would you like to finalize the install the new firmware? Run ' + chalk.bold('firmware set-status installed'),
         ]
 
-        if(args.firmwareStatus = 'downloading'){
-          // getToken()
-          // .then(token => {
-          //   console.log(token);
-          //   return downloadFile(device.config['firmware-update']['Url'], token);
-          // })
-          // .then(file => {
-          //   vorpal.log(file.toString('ascii'));
-          //   return vorpal.log('File downloaded. File size' + file.length);
-          // })
-      }
+        if (args.firmwareStatus == 'downloading') {
+          vorpal.log(chalk.cyan('Retreiving a Firebase token from IoT Core'));
+
+          getToken()
+            .then(token => {
+              vorpal.log(chalk.cyan('Retreived token:'));
+              vorpal.log(token);
+              return downloadFile(device.config['firmware-update']['Url'], token);
+            })
+            .then(file => {
+              vorpal.log(chalk.cyan('File downloaded. File size: ' + file.length));
+              vorpal.log(file.toString('ascii'));
+              vorpal.log(chalk.cyan(messages[statuses.indexOf(args.firmwareStatus)]));
+            })
+        } else {
+          setTimeout(() => {
+            vorpal.log(chalk.cyan(messages[statuses.indexOf(args.firmwareStatus)]));
+          }, 1000);
+        }
 
         // Wait a second before prompting the user for the next step
-        setTimeout(() => {
-          vorpal.log(chalk.cyan(messages[statuses.indexOf(args.firmwareStatus)-1]));
-        }, 1000);
 
         return Promise.resolve();
       });

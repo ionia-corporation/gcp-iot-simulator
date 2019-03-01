@@ -12,9 +12,9 @@ import firmware from '../commands/firmware';
 import logCommands from '../commands/iot-log';
 
 export default class Device {
-  protected state: { [key: string]: string } = {};
-  protected config: { [key: string]: string } = {};
-  protected events: { [key: string]: string } = {};
+  public state: { [key: string]: any } = {};
+  public config: { [key: string]: any } = {};
+  public events: { [key: string]: any } = {};
 
   protected mqttClient: MqttClient;
 

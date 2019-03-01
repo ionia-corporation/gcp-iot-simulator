@@ -27,7 +27,6 @@ export const getToken = (): Promise<string> => {
           const body = chunks.join();
           const response = JSON.parse(body);
           resolve(response.token as string);
-          console.log(response.token);
         });
       }
     )
